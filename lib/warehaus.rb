@@ -1,0 +1,121 @@
+require "warehaus/version"
+require "httparty"
+require "json"
+require "zip"
+require "fileutils"
+require "pry"
+
+module Warehaus
+	class Getter
+		include HTTParty
+
+		base_uri '3dwarehouse.sketchup.com'
+		
+		ENTITY_PATH = '/3dw/GetEntity'
+		KMZ_PATH = '/warehouse/getpubliccontent'
+
+		def initialize(url_or_id, dir='/tmp', name='warehouse-model')
+			@name = name
+			@path = dir
+			@options = {
+				:query => {
+					:id => parse_input(url_or_id)
+				}
+			}
+		end
+
+		def parse_input(input)
+			(input =~ /^[\w|\d]+$/) ? input : input.match(/id=([\w|\d]+)/)[1]
+		end
+
+		def fetch_entity
+			log("📠 Fetching JSON representation of model")
+			@response = JSON.parse(self.class.get(ENTITY_PATH, @options), :symbolize_names => true)
+		end
+
+		def get_kmz_id
+			log("🔍 Checking for KMZ id in JSON")
+			if !@response[:binaries] || !@response[:binaries][:ks] 
+				return raise_error("No KMZ file available for this object 💣")
+			end
+
+			@kmz_options = {
+				:query =>{
+					:contentId => @response[:binaries][:ks][:id],
+					:fn => "#{@name}.kmz"
+				}
+			}
+		end
+
+		def download_kmz
+			log("📥 Downloading KMZ file")
+			@kmz = self.class.get(KMZ_PATH, @kmz_options).parsed_response
+		end
+
+		def write_kmz
+			FileUtils::mkdir_p "#{@path}/.tmp"
+			log("📝 Writing KMZ file")
+			begin
+				File.open("#{@path}/.tmp/#{@name}.kmz", "wb") do |f|
+					f.write @kmz
+				end
+				FileUtils::mv "#{@path}/.tmp/#{@name}.kmz", "#{@path}/.tmp/#{@name}.zip"
+			rescue Exception => e
+				return raise_error e.message
+			end
+		end
+
+		def unzip_kmz
+			log("📁 Creating model directory")
+			FileUtils::mkdir_p "#{@path}/untitled"
+
+			log("🎊 Cracking open the ZIP file")
+			Zip::File.open("#{@path}/.tmp/#{@name}.zip") do |zip_file|
+				
+				valid_paths = zip_file.entries.select do |entry|
+					(entry.name =~ /models\//) != nil
+				end
+				
+				valid_paths.each do |entry|
+
+					if entry.name =~ /\.dae$/
+						dest = "#{@path}/#{@name}.dae"
+					else
+						dest = "#{@path}/#{entry.name.match(/models\/(.*)$/)[1]}"
+					end
+
+					entry.extract(dest)
+				end
+			end
+		end
+
+		def cleanup
+			log("🛀 Cleaning up")
+			FileUtils.rm("#{@path}/.tmp/#{@name}.zip")
+		end
+
+		def unbox
+			log("📦 Beginning unbox!")
+			fetch_entity
+			get_kmz_id
+			download_kmz
+			write_kmz
+			unzip_kmz
+			cleanup
+			"#{@path}/#{@name}"
+		end
+
+		def erase
+			FileUtils.rm_rf "#{@path}/#{@name}"
+		end
+
+		def log(msg)
+			puts("Warehaus: #{msg}")
+		end
+
+		def raise_error(msgs)
+			raise "Warehaus Error: #{msg}"
+		end
+
+	end
+end
