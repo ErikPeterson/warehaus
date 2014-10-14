@@ -166,7 +166,7 @@ module Warehaus
 				@json = JSON.parse(file.read, :symbolize_names => true)
 			end
 
-			WareHaus::Gtter.from_hash(@json)
+			Warehaus::Getter.from_hash(@json)
 
 		end
 
@@ -179,8 +179,35 @@ module Warehaus
 			fetcher.unbox
 		end
 
-		def self.help(method="none")
-			puts "Usage: warehause -V <method> -- <arguments>..."
+		def help(method="none")
+			puts <<eol
+
+WAREHAUS
+
+NAME
+	warehaus
+
+SYNOPSIS
+	warehouse COMMAND [-v] [ARGS]
+
+DESCRIPTION
+	Takes URLS or IDs for Sketchup Warehouse models, grabs their collada 
+	resources, and unpacks them into a target directory
+
+OPTIONS
+	-v
+		Prints logging and debug information
+
+WAREHAUS COMMANDS
+	unbox  [identifier] [path=./] [name=warehouse_model]
+		Unpacks Sketchup model identified by [identifier] to [path]/[name]/[name].dae
+	json [path]
+		[path] is a path to a json file to parse and use for unboxing. see the
+		github docs for information on the strucure of this file
+	help
+		prints help
+
+eol
 		end
 	end
 
