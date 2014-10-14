@@ -16,7 +16,7 @@ module Warehaus
 		ENTITY_PATH = '/3dw/GetEntity'
 		KMZ_PATH = '/warehouse/getpubliccontent'
 
-		def initialize(url_or_id, dir='/tmp', name='warehouse-model')
+		def initialize(url_or_id, dir='./', name='warehouse-model')
 			@name = name
 			@path = dir
 			@options = {
@@ -67,13 +67,13 @@ module Warehaus
 		end
 
 		def write_kmz
-			FileUtils::mkdir_p "#{@path}/.tmp"
+			FileUtils::mkdir_p "#{@path}/#{@name}/.tmp"
 			log("📝  Writing KMZ file")
 			begin
-				File.open("#{@path}/.tmp/#{@name}.kmz", "wb") do |f|
+				File.open("#{@path}/#{@name}/.tmp/#{@name}.kmz", "wb") do |f|
 					f.write @kmz
 				end
-				FileUtils::mv "#{@path}/.tmp/#{@name}.kmz", "#{@path}/.tmp/#{@name}.zip"
+				FileUtils::mv "#{@path}/#{@name}/.tmp/#{@name}.kmz", "#{@path}/#{@name}/.tmp/#{@name}.zip"
 			rescue Exception => e
 				return raise_error e.message
 			end
@@ -81,10 +81,10 @@ module Warehaus
 
 		def unzip_kmz
 			log("📁  Creating model directory")
-			FileUtils::mkdir_p "#{@path}/untitled"
+			FileUtils::mkdir_p "#{@path}/#{@name}/untitled"
 
 			log("🎊  Cracking open the ZIP file")
-			Zip::File.open("#{@path}/.tmp/#{@name}.zip") do |zip_file|
+			Zip::File.open("#{@path}/#{@name}/.tmp/#{@name}.zip") do |zip_file|
 				
 				valid_paths = zip_file.entries.select do |entry|
 					(entry.name =~ /models\//) != nil
@@ -93,9 +93,9 @@ module Warehaus
 				valid_paths.each do |entry|
 
 					if entry.name =~ /\.dae$/
-						dest = "#{@path}/#{@name}.dae"
+						dest = "#{@path}/#{@name}/#{@name}.dae"
 					else
-						dest = "#{@path}/#{entry.name.match(/models\/(.*)$/)[1]}"
+						dest = "#{@path}/#{@name}/#{entry.name.match(/models\/(.*)$/)[1]}"
 					end
 
 					entry.extract(dest)
@@ -116,7 +116,7 @@ module Warehaus
 			write_kmz
 			unzip_kmz
 			cleanup
-			"#{@path}/#{@name}"
+			"#{@path}/#{@name}/"
 		end
 
 		def erase
