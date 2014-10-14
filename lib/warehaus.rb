@@ -27,7 +27,7 @@ module Warehaus
 		end
 
 		def parse_input(input)
-			(input =~ /^[\w|\d]+$/) ? input : input.match(/id=([\w|\d]+)/)[1]
+			(input =~ /^[\w|\-|\d]+$/) ? input : input.match(/id=([\w|\-|\d]+)/)[1]
 		end
 
 		def fetch_entity
@@ -37,13 +37,25 @@ module Warehaus
 
 		def get_kmz_id
 			log("🔍  Checking for KMZ id in JSON")
-			if !@response[:binaries] || !@response[:binaries][:ks] 
-				return raise_error("No KMZ file available for this object 💣")
+
+			if !@response[:binaries] 
+				return log("No KMZ file available for this object 💣")
+			end
+				
+			if @response[:binaries][:ks]
+				kmz_id = @response[:binaries][:ks][:id]
+			else
+				@response[:binaries].each{ |k, bin|
+					kmz_id = bin[:id] if (bin[:originalFileName] =~ /kmz$/) != nil
+				}
+				if !kmz_id
+					return log("No KMZ file available for this object 💣")
+				end
 			end
 
 			@kmz_options = {
 				:query =>{
-					:contentId => @response[:binaries][:ks][:id],
+					:contentId => kmz_id,
 					:fn => "#{@name}.kmz"
 				}
 			}
@@ -93,7 +105,7 @@ module Warehaus
 
 		def cleanup
 			log("🛀  Cleaning up")
-			FileUtils.rm("#{@path}/.tmp/#{@name}.zip")
+			FileUtils.rm_rf("#{@path}")
 		end
 
 		def unbox
@@ -111,7 +123,7 @@ module Warehaus
 			FileUtils.rm_rf "#{@path}/#{@name}"
 		end
 
-		def raise_error(msgs)
+		def raise_error(msg)
 			raise "Warehaus Error: #{msg}"
 		end
 
@@ -141,6 +153,17 @@ module Warehaus
 
 		def set_options
 			@options.each{ |opt| self.send(opt)}
+		end
+
+		def json(args)
+
+			File.open(args[0]) do |file|
+				@json = JSON.parse(file.read, :symbolize_names => true)
+			end
+
+			@json[:models].each do |k, v|
+				unbox([v, "#{@json[:dir]}/#{k}", k])
+			end
 		end
 
 		def v
