@@ -10,7 +10,7 @@ Gem::Specification.new do |spec|
   spec.email         = ["eriksalgstrom@gmail.com"]
   spec.summary       = "Get files from the 3D warehouse"
   spec.description   = "Fetch KMZ files from the Sketchup 3D Warehouse, and convert them into sensibly named directories and DAE files"
-  spec.homepage      = ""
+  spec.homepage      = "https://github.com/ErikPeterson/warehaus"
   spec.license       = "GPL"
 
   spec.files         = `git ls-files -z`.split("\x0")
