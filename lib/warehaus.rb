@@ -127,10 +127,15 @@ module Warehaus
 			raise "Warehaus Error: #{msg}"
 		end
 
-
-
 		def log(msg)
 			puts("Warehaus: #{msg}") if $mode == "verbose"
+		end
+
+		def self.from_hash(hash)
+			hash[:models].each do |k, v|
+				getter = self.new(v, "#{hash[:dir]}/#{k}", k)
+				getter.unbox
+			end
 		end
 
 
@@ -161,9 +166,8 @@ module Warehaus
 				@json = JSON.parse(file.read, :symbolize_names => true)
 			end
 
-			@json[:models].each do |k, v|
-				unbox([v, "#{@json[:dir]}/#{k}", k])
-			end
+			WareHaus::Gtter.from_hash(@json)
+
 		end
 
 		def v
