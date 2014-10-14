@@ -1,0 +1,4 @@
+#!/usr/bin/env ruby
+require "warehaus"
+
+Warehaus::CLI.new(ARGV)

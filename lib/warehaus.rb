@@ -6,6 +6,8 @@ require "fileutils"
 require "pry"
 
 module Warehaus
+	$mode = "quiet"
+
 	class Getter
 		include HTTParty
 
@@ -29,12 +31,12 @@ module Warehaus
 		end
 
 		def fetch_entity
-			log("📠 Fetching JSON representation of model")
+			log("📠  Fetching JSON representation of model")
 			@response = JSON.parse(self.class.get(ENTITY_PATH, @options), :symbolize_names => true)
 		end
 
 		def get_kmz_id
-			log("🔍 Checking for KMZ id in JSON")
+			log("🔍  Checking for KMZ id in JSON")
 			if !@response[:binaries] || !@response[:binaries][:ks] 
 				return raise_error("No KMZ file available for this object 💣")
 			end
@@ -48,13 +50,13 @@ module Warehaus
 		end
 
 		def download_kmz
-			log("📥 Downloading KMZ file")
+			log("📥  Downloading KMZ file")
 			@kmz = self.class.get(KMZ_PATH, @kmz_options).parsed_response
 		end
 
 		def write_kmz
 			FileUtils::mkdir_p "#{@path}/.tmp"
-			log("📝 Writing KMZ file")
+			log("📝  Writing KMZ file")
 			begin
 				File.open("#{@path}/.tmp/#{@name}.kmz", "wb") do |f|
 					f.write @kmz
@@ -66,10 +68,10 @@ module Warehaus
 		end
 
 		def unzip_kmz
-			log("📁 Creating model directory")
+			log("📁  Creating model directory")
 			FileUtils::mkdir_p "#{@path}/untitled"
 
-			log("🎊 Cracking open the ZIP file")
+			log("🎊  Cracking open the ZIP file")
 			Zip::File.open("#{@path}/.tmp/#{@name}.zip") do |zip_file|
 				
 				valid_paths = zip_file.entries.select do |entry|
@@ -90,12 +92,12 @@ module Warehaus
 		end
 
 		def cleanup
-			log("🛀 Cleaning up")
+			log("🛀  Cleaning up")
 			FileUtils.rm("#{@path}/.tmp/#{@name}.zip")
 		end
 
 		def unbox
-			log("📦 Beginning unbox!")
+			log("📦  Beginning unbox!")
 			fetch_entity
 			get_kmz_id
 			download_kmz
@@ -109,13 +111,51 @@ module Warehaus
 			FileUtils.rm_rf "#{@path}/#{@name}"
 		end
 
-		def log(msg)
-			puts("Warehaus: #{msg}")
-		end
-
 		def raise_error(msgs)
 			raise "Warehaus Error: #{msg}"
 		end
 
+
+
+		def log(msg)
+			puts("Warehaus: #{msg}") if $mode == "verbose"
+		end
+
+
 	end
+
+	class CLI
+		
+		def initialize(args)
+			@options = args
+						.select{|arg| (arg =~ /^\-/) != nil}
+						.map{|arg| arg.gsub(/^\-/,'')}
+
+			set_options
+
+			stripped_args = args.reject{|arg| (arg =~ /^\-/) != nil}
+			@method = stripped_args[0]
+			@arguments = stripped_args[1..-1]
+			self.send(@method, @arguments)
+		end
+
+		def set_options
+			@options.each{ |opt| self.send(opt)}
+		end
+
+		def v
+			$mode = "verbose"
+		end
+
+		def unbox(args)
+			fetcher = Warehaus::Getter.new(*args)
+			fetcher.unbox
+		end
+
+		def self.help(method="none")
+			puts "Usage: warehause -V <method> -- <arguments>..."
+		end
+	end
+
+
 end
