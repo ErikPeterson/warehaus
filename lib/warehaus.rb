@@ -3,7 +3,6 @@ require "httparty"
 require "json"
 require "zip"
 require "fileutils"
-require "pry"
 
 module Warehaus
 	$mode = "quiet"
@@ -19,6 +18,7 @@ module Warehaus
 		def initialize(url_or_id, dir='./', name='warehouse-model')
 			@name = name
 			@path = dir
+			@model_path = @path + '/' + @name
 			@options = {
 				:query => {
 					:id => parse_input(url_or_id)
@@ -67,13 +67,13 @@ module Warehaus
 		end
 
 		def write_kmz
-			FileUtils::mkdir_p "#{@path}/#{@name}/.tmp"
+			FileUtils::mkdir_p "#{@model_path}/.tmp"
 			log("📝  Writing KMZ file")
 			begin
-				File.open("#{@path}/#{@name}/.tmp/#{@name}.kmz", "wb") do |f|
+				File.open("#{@model_path}/.tmp/#{@name}.kmz", "w+") do |f|
 					f.write @kmz
 				end
-				FileUtils::mv "#{@path}/#{@name}/.tmp/#{@name}.kmz", "#{@path}/#{@name}/.tmp/#{@name}.zip"
+				FileUtils::mv "#{@model_path}/.tmp/#{@name}.kmz", "#{@model_path}/.tmp/#{@name}.zip"
 			rescue Exception => e
 				return raise_error e.message
 			end
@@ -81,10 +81,10 @@ module Warehaus
 
 		def unzip_kmz
 			log("📁  Creating model directory")
-			FileUtils::mkdir_p "#{@path}/#{@name}/untitled"
+			FileUtils::mkdir_p "#{@model_path}/untitled"
 
 			log("🎊  Cracking open the ZIP file")
-			Zip::File.open("#{@path}/#{@name}/.tmp/#{@name}.zip") do |zip_file|
+			Zip::File.open("#{@model_path}/.tmp/#{@name}.zip") do |zip_file|
 				
 				valid_paths = zip_file.entries.select do |entry|
 					(entry.name =~ /models\//) != nil
@@ -93,9 +93,9 @@ module Warehaus
 				valid_paths.each do |entry|
 
 					if entry.name =~ /\.dae$/
-						dest = "#{@path}/#{@name}/#{@name}.dae"
+						dest = "#{@model_path}/#{@name}.dae"
 					else
-						dest = "#{@path}/#{@name}/#{entry.name.match(/models\/(.*)$/)[1]}"
+						dest = "#{@model_path}/#{entry.name.match(/models\/(.*)$/)[1]}"
 					end
 
 					entry.extract(dest)
@@ -105,7 +105,7 @@ module Warehaus
 
 		def cleanup
 			log("🛀  Cleaning up")
-			FileUtils.rm_rf("#{@path}")
+			FileUtils.rm_rf("#{@model_path}/.tmp")
 		end
 
 		def unbox
@@ -120,7 +120,7 @@ module Warehaus
 		end
 
 		def erase
-			FileUtils.rm_rf "#{@path}/#{@name}"
+			FileUtils.rm_rf "#{@model_path}"
 		end
 
 		def raise_error(msg)
@@ -133,7 +133,8 @@ module Warehaus
 
 		def self.from_hash(hash)
 			hash[:models].each do |k, v|
-				getter = self.new(v, "#{hash[:dir]}/#{k}", k)
+
+				getter = self.new(v, "#{hash[:dir]}", k.to_s)
 				getter.unbox
 			end
 		end
