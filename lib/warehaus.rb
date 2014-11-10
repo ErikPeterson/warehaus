@@ -32,7 +32,7 @@ module Warehaus
 
 		def fetch_entity
 			log("📠  Fetching JSON representation of model")
-			@response = JSON.parse(self.class.get(ENTITY_PATH, @options), :symbolize_names => true)
+			@response ||= JSON.parse(self.class.get(ENTITY_PATH, @options), :symbolize_names => true)
 		end
 
 		def get_kmz_id
