@@ -1,8 +1,11 @@
 require "warehaus/version"
 require "httparty"
+require "net/http"
+require "uri"
 require "json"
 require "zip"
 require "fileutils"
+require "pry"
 
 module Warehaus
 	$mode = "quiet"
@@ -10,8 +13,8 @@ module Warehaus
 	class Getter
 		include HTTParty
 
-		base_uri '3dwarehouse.sketchup.com'
-		
+		BASE_URI = '3dwarehouse.sketchup.com'
+		base_uri BASE_URI
 		ENTITY_PATH = '/3dw/GetEntity'
 		KMZ_PATH = '/warehouse/getpubliccontent'
 
@@ -61,22 +64,39 @@ module Warehaus
 			}
 		end
 
-		def download_kmz
+		def download_kmz(tries=3, redirect=false)
+			return raise_error 'HTTP Redirect too deep' if tries == 0
 			log("📥  Downloading KMZ file")
-			@kmz = self.class.get(KMZ_PATH, @kmz_options).parsed_response
-		end
 
-		def write_kmz
 			FileUtils::mkdir_p "#{@model_path}/.tmp"
-			log("📝  Writing KMZ file")
+			url = redirect ? URI.parse( redirect ) : URI.parse("http://" + BASE_URI + "#{KMZ_PATH}?contentId=#{@kmz_options[:query][:contentId]}&fn=#{@kmz_options[:query][:fn]}")
+			
 			begin
-				File.open("#{@model_path}/.tmp/#{@name}.kmz", "w+") do |f|
-					f.write @kmz
-				end
-				FileUtils::mv "#{@model_path}/.tmp/#{@name}.kmz", "#{@model_path}/.tmp/#{@name}.zip"
+				resp = Net::HTTP.get_response(url)
 			rescue Exception => e
+				binding.pry
 				return raise_error e.message
 			end
+
+				
+			case resp
+			    when Net::HTTPSuccess then
+		    		binding.pry
+
+		    		File.open("#{@model_path}/.tmp/#{@name}.kmz", "wb") do |file|
+		        
+		        		file.write(resp.body)
+		        
+		        	end
+		    	
+		    		FileUtils.mv "#{@model_path}/.tmp/#{@name}.kmz", "#{@model_path}/.tmp/#{@name}.zip"
+		        
+		        when Net::HTTPRedirection then
+		   			download_kmz( tries-1, resp['location'])
+		   		else raise_error("Response neither successful nor redirecting")
+		    end
+			
+
 		end
 
 		def unzip_kmz
@@ -113,7 +133,6 @@ module Warehaus
 			fetch_entity
 			get_kmz_id
 			download_kmz
-			write_kmz
 			unzip_kmz
 			cleanup
 			"#{@path}/#{@name}/"
