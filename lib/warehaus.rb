@@ -5,7 +5,6 @@ require "uri"
 require "json"
 require "zip"
 require "fileutils"
-require "pry"
 
 module Warehaus
 	$mode = "quiet"
@@ -66,7 +65,8 @@ module Warehaus
 
 		def download_kmz(tries=3, redirect=false)
 			return raise_error 'HTTP Redirect too deep' if tries == 0
-			log("📥  Downloading KMZ file")
+			
+			log("📥  Downloading KMZ file") unless redirect
 
 			FileUtils::mkdir_p "#{@model_path}/.tmp"
 			url = redirect ? URI.parse( redirect ) : URI.parse("http://" + BASE_URI + "#{KMZ_PATH}?contentId=#{@kmz_options[:query][:contentId]}&fn=#{@kmz_options[:query][:fn]}")
@@ -74,14 +74,12 @@ module Warehaus
 			begin
 				resp = Net::HTTP.get_response(url)
 			rescue Exception => e
-				binding.pry
 				return raise_error e.message
 			end
 
 				
 			case resp
 			    when Net::HTTPSuccess then
-		    		binding.pry
 
 		    		File.open("#{@model_path}/.tmp/#{@name}.kmz", "wb") do |file|
 		        
@@ -125,7 +123,7 @@ module Warehaus
 
 		def cleanup
 			log("🛀  Cleaning up")
-			FileUtils.rm_rf("#{@model_path}/.tmp")
+			FileUtils.rm_rf("#{@model_path}")
 		end
 
 		def unbox
@@ -133,8 +131,7 @@ module Warehaus
 			fetch_entity
 			get_kmz_id
 			download_kmz
-			unzip_kmz
-			cleanup
+			unzip_km
 			"#{@path}/#{@name}/"
 		end
 
