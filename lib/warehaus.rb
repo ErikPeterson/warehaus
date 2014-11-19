@@ -131,7 +131,7 @@ module Warehaus
 			fetch_entity
 			get_kmz_id
 			download_kmz
-			unzip_km
+			unzip_kmz
 			"#{@path}/#{@name}/"
 		end
 
